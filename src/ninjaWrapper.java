@@ -28,41 +28,30 @@ import org.eclipse.jetty.servlet.*;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.json.JSONObject;
+import org.json.XML;
 
 public class ninjaWrapper extends HttpServlet{
-    
-    
+        
     String serializedClassifier = "classifiers/all.3class.distsim.crf.ser.gz";
     AbstractSequenceClassifier classifier = CRFClassifier.getClassifierNoExceptions(serializedClassifier);
 
     
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
-//        StringBuffer jb = new StringBuffer();
-//        String line = null;
-//        try {
-//          BufferedReader reader = req.getReader();
-//          while ((line = reader.readLine()) != null)
-//            jb.append(line);
-//        } catch (Exception e) { /*report an error*/ }
-//        
-//        resp.getWriter().print(jb.toString());
-//        
-        
+            throws ServletException, IOException {        
         String url = req.getParameter("url");
-                
+        
         if(url == null)
         {
             String html = readFile("ninja.html");
             resp.getWriter().print(html);
-            System.out.print("something" + html);
             return;
         }
-        
+        String contentAPI = "https://readability.com/api/content/v1/parser?url=" + url + "&token=a00a157998da82ec6561168c7a23670e770916fd";
         
         PrintWriter out = resp.getWriter();
-        URL u = new URL(url);
+        URL u = new URL(contentAPI);
         
         BufferedReader in = new BufferedReader(new InputStreamReader(u.openStream()));
 
@@ -71,27 +60,49 @@ public class ninjaWrapper extends HttpServlet{
         String txt;
         while ((inputLine = in.readLine()) != null)
         {
-            txt = classifier.classifyWithInlineXML(inputLine);
-            //System.out.print(txt);
+            //resp.getWriter().print(inputLine);
+            content+=inputLine;
+//            txt = classifier.classifyWithInlineXML(inputLine);
+//            while(txt.contains("<PERSON>"))
+//            {
+//                int start = txt.indexOf("<PERSON>");
+//                int end = txt.indexOf("</PERSON>");
+//                if(end < 0) break;
+//                try{
+//                    resp.getWriter().print(txt.substring(start + 8, end) + "\n");
+//                    txt = txt.substring(end + 9);
+//                } catch(Exception e)
+//                {
+//                    System.out.print("exception!\n");
+//                    break;
+//                }                
+//            }
+        }
+        
+        try{
+            JSONObject j = new JSONObject(content);
+            String c = j.get("content").toString();
+            txt = classifier.classifyWithInlineXML(c);
             while(txt.contains("<PERSON>"))
-            {
-                int start = txt.indexOf("<PERSON>");
-                int end = txt.indexOf("</PERSON>");
-                if(end < 0) break;
-                try{
-                    resp.getWriter().print(txt.substring(start + 8, end) + "\n");
-                    txt = txt.substring(end + 9);
-                } catch(Exception e)
-                {
-                    System.out.print("exception!\n");
-                    break;
-                }                
-            }
+              {
+                  int start = txt.indexOf("<PERSON>");
+                  int end = txt.indexOf("</PERSON>");
+                  if(end < 0) break;
+                  try{
+                      resp.getWriter().print(txt.substring(start + 8, end) + "\n");
+                      txt = txt.substring(end + 9);
+                  } catch(Exception e)
+                  {
+                      System.out.print("exception!\n");
+                      break;
+                  }                
+              }
 
         }
+        catch (Exception e){
+            e.printStackTrace();
+        }
         in.close();
-//        System.out.print(xml);
-//        resp.getWriter().print(xml);
     }
 
     private static String readFile(String path) throws IOException {
